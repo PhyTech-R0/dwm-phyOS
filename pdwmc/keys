@@ -68,8 +68,8 @@ static const struct Key keys[] = {
     { 0, XK_AudioForward,       spawn,      SHCMD("mpc seek +10") },
     { 0, XK_AudioMicMute,       spawn,      SHCMD("pactl set-source-mute @DEFAULT_SOURCE@ toggle") },
     { 0, XK_TouchpadToggle,     spawn,      SHCMD("pOS-touchpadtoggle") },
-    { 0, XK_MonBrightnessUp,    spawn,      SHCMD("light -A 2 && pOS-brightness") },
-    { 0, XK_MonBrightnessDown,  spawn,      SHCMD("light -U 2 && pOS-brightness") },
+    { 0, XK_MonBrightnessUp,    spawn,      SHCMD("pOS-brightness +2") },
+    { 0, XK_MonBrightnessDown,  spawn,      SHCMD("pOS-brightness -2") },
     { 0, XK_KbdBrightnessDown,  spawn,      SHCMD("var=$( ls /sys/class/leds/ | grep kbd_backlight ); light -s sysfs/leds/$var -r -U 1")},
     { 0, XK_KbdBrightnessUp,    spawn,      SHCMD("var=$( ls /sys/class/leds/ | grep kbd_backlight ); light -s sysfs/leds/$var -r -A 1")},
 };

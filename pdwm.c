@@ -21,6 +21,7 @@
  */
 #include <X11/X.h>
 #include <X11/Xatom.h>
+#include <X11/Xlib.h>
 #include <X11/Xproto.h>
 #include <X11/Xresource.h>
 #include <X11/Xutil.h>
@@ -43,6 +44,7 @@
 #endif /* XINERAMA */
 #include <X11/Xft/Xft.h>
 #include <X11/Xlib-xcb.h>
+#include <X11/XKBlib.h>
 #include <xcb/res.h>
 
 #include "config.h"
@@ -130,11 +132,7 @@ const char **fonts;
 extern const char **get_fonts();
 
 /* variables */
-static const char autostartblocksh[] = "autostart_blocking.sh";
-static const char autostartsh[] = "autostart.sh";
 static const char broken[] = "broken";
-static const char pdwmdir[] = "phyos/pdwm";
-static const char localshare[] = ".config";
 static char *sb_arr[10]; /* Array that holds name of pngs */
 static int sb_tw;
 static char stext[256];
@@ -222,10 +220,8 @@ static void resizeclient(Client *c, int x, int y, int w, int h);
 void resizemouse(const Arg *arg);
 static void restack(Monitor *m);
 static void run(void);
-static void runautostart(void);
 static void scan(void);
-static int sendevent(Window win, Atom proto, int m, long d0, long d1, long d2, long d3,
-		     long d4);
+static int sendevent(Window win, Atom proto, int m, long d0, long d1, long d2, long d3, long d4);
 static void sendmon(Client *c, Monitor *m);
 static void setclientstate(Client *c, long state);
 static void setclienttagprop(Client *c);
@@ -384,9 +380,13 @@ void applyrules(Client *c)
 			c->noswallow = r->noswallow;
 			c->managedsize = r->managedsize;
 			c->tags |= r->tags;
+			if (r->tags) {
+				c->neverfocus = True;
+			}
 			if ((r->tags & SPTAGMASK) && r->isfloating) {
 				c->x = c->mon->wx + (c->mon->ww / 2 - WIDTH(c) / 2);
 				c->y = c->mon->wy + (c->mon->wh / 2 - HEIGHT(c) / 2);
+				c->neverfocus = False;
 			}
 
 			if (c->managedsize) {
@@ -784,10 +784,6 @@ void clientmessage(XEvent *e)
 			sendevent(c->win, netatom[Xembed], StructureNotifyMask,
 				  CurrentTime, XEMBED_EMBEDDED_NOTIFY, 0, systray->win,
 				  XEMBED_EMBEDDED_VERSION);
-			/* FIXME not sure if I have to send these events, too */
-			// sendevent(c->win, netatom[Xembed], StructureNotifyMask, CurrentTime, XEMBED_FOCUS_IN, 0 , systray->win, XEMBED_EMBEDDED_VERSION);
-			// sendevent(c->win, netatom[Xembed], StructureNotifyMask, CurrentTime, XEMBED_WINDOW_ACTIVATE, 0 , systray->win, XEMBED_EMBEDDED_VERSION);
-			// sendevent(c->win, netatom[Xembed], StructureNotifyMask, CurrentTime, XEMBED_MODALITY_ON, 0 , systray->win, XEMBED_EMBEDDED_VERSION);
 			XSync(dpy, False);
 			drawbars();
 			updatesystray();
@@ -1543,7 +1539,7 @@ void keypress(XEvent *e)
 	XKeyEvent *ev;
 
 	ev = &e->xkey;
-	keysym = XKeycodeToKeysym(dpy, (KeyCode)ev->keycode, 0);
+	keysym = XkbKeycodeToKeysym(dpy, (KeyCode)ev->keycode, 0, 0);
 	for (i = 0; i < MAX(lenkeys, LENGTH(defkeys)); i++) {
 		if (i < lenkeys)
 			if (keysym == keys[i].keysym &&
@@ -2112,79 +2108,6 @@ void run(void)
 	XSync(dpy, False);
 	while (running && !XNextEvent(dpy, &ev))
 		if (handler[ev.type]) handler[ev.type](&ev); /* call handler */
-}
-
-void runautostart(void)
-{
-	char *pathpfx;
-	char *path;
-	char *xdgconfighome;
-	char *home;
-	struct stat sb;
-
-	if ((home = getenv("HOME")) == NULL) /* this is almost impossible */
-		return;
-
-	/* if $XDG_CONFIG_HOME is set and not empty, use $XDG_CONFIG_HOME/phyos/pdwm,
-	 * otherwise use ~/.config/phyos/pdwm as autostart script directory
-	 */
-	xdgconfighome = getenv("XDG_CONFIG_HOME");
-	if (xdgconfighome != NULL && *xdgconfighome != '\0') {
-		/* space for path segments, separators and nul */
-		pathpfx = ecalloc(1, strlen(xdgconfighome) + strlen(pdwmdir) + 2);
-
-		if (sprintf(pathpfx, "%s/%s", xdgconfighome, pdwmdir) <= 0) {
-			free(pathpfx);
-			return;
-		}
-	} else {
-		/* space for path segments, separators and nul */
-		pathpfx = ecalloc(1, strlen(home) + strlen(localshare) + strlen(pdwmdir) +
-					     3);
-
-		if (sprintf(pathpfx, "%s/%s/%s", home, localshare, pdwmdir) < 0) {
-			free(pathpfx);
-			return;
-		}
-	}
-
-	/* check if the autostart script directory exists */
-	if (!(stat(pathpfx, &sb) == 0 && S_ISDIR(sb.st_mode))) {
-		/* the XDG conformant path does not exist or is no directory
-		 * so we try ~/.pdwm instead
-		 */
-		char *pathpfx_new = realloc(pathpfx, strlen(home) + strlen(pdwmdir) + 3);
-		if (pathpfx_new == NULL) {
-			free(pathpfx);
-			return;
-		}
-		pathpfx = pathpfx_new;
-
-		if (sprintf(pathpfx, "%s/.%s", home, pdwmdir) <= 0) {
-			free(pathpfx);
-			return;
-		}
-	}
-
-	/* try the blocking script first */
-	path = ecalloc(1, strlen(pathpfx) + strlen(autostartblocksh) + 2);
-	if (sprintf(path, "%s/%s", pathpfx, autostartblocksh) <= 0) {
-		free(path);
-		free(pathpfx);
-	}
-
-	if (access(path, X_OK) == 0) system(path);
-
-	/* now the non-blocking script */
-	if (sprintf(path, "%s/%s", pathpfx, autostartsh) <= 0) {
-		free(path);
-		free(pathpfx);
-	}
-
-	if (access(path, X_OK) == 0) system(strcat(path, " &"));
-
-	free(pathpfx);
-	free(path);
 }
 
 void scan(void)
@@ -3306,8 +3229,10 @@ void updatesystray(void)
 		w += i->w;
 	}
 	w = w > sb_delimiter_w ? w - sb_delimiter_w : 1;
-	XSetForeground(dpy, drw->gc, scheme[SchemeNorm][ColBg].pixel);
-	XFillRectangle(dpy, systray->win, drw->gc, 0, 0, w + 2 * sb_padding_x, bh);
+	if (w != 1) {
+		XSetForeground(dpy, drw->gc, scheme[SchemeNorm][ColBg].pixel);
+		XFillRectangle(dpy, systray->win, drw->gc, 0, 0, w + 2 * sb_padding_x, bh);
+	}
 	XSync(dpy, False);
 }
 
@@ -3429,7 +3354,7 @@ void swaptags(const Arg *arg)
 int main(int argc, char *argv[])
 {
 	if (argc == 2 && !strcmp("-v", argv[1]))
-		die("ppdwm-" VERSION);
+		die("pdwm-" VERSION);
 	else if (argc != 1)
 		die("usage: pdwm [-v]");
 	if (!setlocale(LC_CTYPE, "") || !XSupportsLocale())
@@ -3447,7 +3372,6 @@ int main(int argc, char *argv[])
 #endif /* __OpenBSD__ */
 	scan();
 	autostart();
-	runautostart();
 	run();
 	if (restart) execvp(argv[0], argv);
 	cleanup();
