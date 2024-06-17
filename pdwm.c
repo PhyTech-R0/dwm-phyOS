@@ -380,13 +380,9 @@ void applyrules(Client *c)
 			c->noswallow = r->noswallow;
 			c->managedsize = r->managedsize;
 			c->tags |= r->tags;
-			if (r->tags) {
-				c->neverfocus = True;
-			}
 			if ((r->tags & SPTAGMASK) && r->isfloating) {
 				c->x = c->mon->wx + (c->mon->ww / 2 - WIDTH(c) / 2);
 				c->y = c->mon->wy + (c->mon->wh / 2 - HEIGHT(c) / 2);
-				c->neverfocus = False;
 			}
 
 			if (c->managedsize) {
