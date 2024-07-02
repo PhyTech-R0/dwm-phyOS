@@ -22,7 +22,6 @@ static const struct Key keys[] = {
     { Win,           XK_q,       killclient, {0} },
     { Win,           XK_w,       spawn,      SHCMD("$BROWSER") },
     { Win,           XK_t,       spawn,      SHCMD("pidof -s picom && killall -9 picom || picom &") },
-    { Win,           XK_r,       spawn,      SHCMD(MAKETERM(TERMINAL, " -e lf"))},
     { Win,           XK_p,       spawn,      SHCMD("pass_menu") },
     { Win|Alt,   XK_p,       spawn,      SHCMD(MAKETERM(TERMINAL, " -e htop")) },
     { Alt,          XK_p,       spawn,      SHCMD(MAKETERM(TERMINAL, " -e s-tui")) },
@@ -70,6 +69,6 @@ static const struct Key keys[] = {
     { 0, XK_TouchpadToggle,     spawn,      SHCMD("pOS-touchpadtoggle") },
     { 0, XK_MonBrightnessUp,    spawn,      SHCMD("pOS-brightness +2") },
     { 0, XK_MonBrightnessDown,  spawn,      SHCMD("pOS-brightness -2") },
-    { 0, XK_KbdBrightnessDown,  spawn,      SHCMD("var=$( ls /sys/class/leds/ | grep kbd_backlight ); light -s sysfs/leds/$var -r -U 1")},
-    { 0, XK_KbdBrightnessUp,    spawn,      SHCMD("var=$( ls /sys/class/leds/ | grep kbd_backlight ); light -s sysfs/leds/$var -r -A 1")},
+    { 0, XK_KbdBrightnessDown,  spawn,      SHCMD("pOS-brightness kbd +")},
+    { 0, XK_KbdBrightnessUp,    spawn,      SHCMD("pOS-brightness kbd -")},
 };
